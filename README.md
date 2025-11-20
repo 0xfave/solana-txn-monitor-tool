@@ -77,19 +77,16 @@ let tier = parser.load_idl_for_program("SomeProgram11111111111111111111111111111
 
 ### IDL Guesser Setup
 
-The IDL Guesser is a separate tool by [SEC3](https://github.com/sec3-service/IDLGuesser) that must be built first:
+The IDL Guesser is integrated into this repository (forked from [SEC3's original tool](https://github.com/sec3-service/IDLGuesser)) and built automatically:
 
 ```bash
-# Build the IDL Guesser (one-time, takes ~11 minutes)
-cd idl-guesser
-cargo build --release
-cd ..
-
-# Add to .gitignore
-echo "idl-guesser/target/" >> .gitignore
+# Build everything (main tool + IDL Guesser)
+make setup
 ```
 
 The binary will be located at `idl-guesser/target/release/idl-guesser` and automatically used by the parser.
+
+**Why forked?** We maintain our own copy to ensure long-term availability and compatibility, independent of external repository changes.
 
 ## Quick Start
 
@@ -107,13 +104,12 @@ cd solana-txn-monitor-tool
 cp .env.example .env
 # Edit .env and add your HELIUS_API_KEY
 
-# Build IDL Guesser (for automatic IDL recovery)
-cd idl-guesser
-cargo build --release
-cd ..
+# Build everything (main tool + IDL Guesser) - takes ~15 minutes first time
+make setup
 
-# Build main project
-cargo build
+# Or build individually
+make build          # Main tool only
+make build-idl-guesser  # IDL Guesser only
 
 # Run WebSocket monitor (watches Jupiter transactions)
 cargo run --example websocket_monitor
