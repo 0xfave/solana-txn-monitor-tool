@@ -1,86 +1,89 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [package]
-    authors = ["0xfave"]
-    description = "Solana Transaction Monitor Tool - ETL pipeline for monitoring and flagging blockchain transactions"
-    edition = "2021"
-    homepage = "https://github.com/0xfave/solana-txn-monitor-tool"
-    license = "MIT"
-    name = "solana-txn-monitor-tool"
-    version = "0.1.0"
+authors = ["0xfave"]
+description = "Solana Transaction Monitor Tool - ETL pipeline for monitoring and flagging blockchain transactions"
+edition = "2021"
+homepage = "https://github.com/0xfave/solana-txn-monitor-tool"
+license = "MIT"
+name = "solana-txn-monitor-tool"
+version = "0.1.0"
 
 [dependencies]
-    # Async Runtime
-    tokio = { version = "1.40", features = ["full"] }
-    futures = "0.3"
+# Async Runtime
+tokio = { version = "1.40", features = ["full"] }
+futures = "0.3"
 
-    # Solana SDK
-    solana-client = "2.0"
-    solana-sdk = "2.0"
-    solana-transaction-status = "2.0"
-    anchor-lang = "0.30"              # For IDL parsing
+# Solana SDK
+solana-client = "2.0"
+solana-sdk = "2.0"
+solana-transaction-status = "2.0"
+anchor-lang = "0.30"              # For IDL parsing
 
-    # HTTP Client
-    reqwest = { version = "0.12", features = ["json", "native-tls"] }
+# HTTP Client
+reqwest = { version = "0.12", features = ["json", "native-tls"] }
 
-    # WebSocket
-    tokio-tungstenite = { version = "0.23", features = ["native-tls"] }
+# WebSocket
+tokio-tungstenite = { version = "0.23", features = ["native-tls"] }
 
-    # Database (ClickHouse)
-    clickhouse = "0.12"
+# Database (ClickHouse)
+clickhouse = "0.12"
 
-    # Serialization
-    serde = { version = "1.0", features = ["derive"] }
-    serde_json = "1.0"
-    toml = "0.8"
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
 
-    # Configuration
-    config = "0.14"
-    dotenvy = "0.15" # For .env file support
+# Configuration
+config = "0.14"
+dotenvy = "0.15" # For .env file support
 
-    # TUI
-    ratatui = "0.29.0"
-    crossterm = "0.28"
+# TUI
+ratatui = "0.29.0"
+crossterm = "0.28"
 
-    # Error Handling
-    anyhow = "1.0"
-    thiserror = "1.0"
+# Error Handling
+anyhow = "1.0"
+thiserror = "1.0"
 
-    # Logging & Tracing
-    tracing = "0.1"
-    tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
-    # Metrics
-    metrics = "0.23"
-    metrics-exporter-prometheus = "0.15"
+# Metrics
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
 
-    # Date/Time
-    chrono = { version = "0.4", features = ["serde"] }
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
 
-    # Async Channels
-    async-channel = "2.3"
+# Async Channels
+async-channel = "2.3"
 
-    # Rate Limiting
-    governor = "0.6"
+# Rate Limiting
+governor = "0.6"
 
-    # Parallel Processing
-    rayon = "1.10"
+# Parallel Processing
+rayon = "1.10"
 
-    # UUID Generation
-    uuid = { version = "1.10", features = ["v4", "serde"] }
+# UUID Generation
+uuid = { version = "1.10", features = ["v4", "serde"] }
+
+# Cryptography (for IDL discriminator calculation)
+sha2 = "0.10"
 
 [dev-dependencies]
-    mockito = "1.5"    # For mocking HTTP requests in tests
-    tokio-test = "0.4"
-    criterion = "0.5"  # For benchmarking
+mockito = "1.5"    # For mocking HTTP requests in tests
+tokio-test = "0.4"
+criterion = "0.5"  # For benchmarking
 
 [profile.release]
-    opt-level = 3
-    lto = true
-    codegen-units = 1
+opt-level = 3
+lto = true
+codegen-units = 1
 
 [profile.dev]
-    opt-level = 0
+opt-level = 0
 
 [profile.test]
-    opt-level = 1
+opt-level = 1

@@ -1,3 +1,5 @@
+pub mod idl_loader;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;

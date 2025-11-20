@@ -187,55 +187,152 @@ impl Protocol {
     }
 }
 
-/// IDL Schema (Anchor format)
+/// IDL Schema (Anchor format) - Root structure
+/// Supports both old format (version at top level) and new format (metadata object)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IDLSchema {
-    /// IDL version
+    /// IDL version (old format) (e.g., "0.1.0")
+    #[serde(default)]
     pub version: String,
-    /// Program name
+    /// Program name (old format)
+    #[serde(default)]
     pub name: String,
+    /// Program address (new format)
+    #[serde(default)]
+    pub address: Option<String>,
+    /// Program ID (optional in some IDLs, old format)
+    #[serde(rename = "programId", default)]
+    pub program_id: Option<String>,
+    /// Metadata (new Anchor 0.30+ format)
+    #[serde(default)]
+    pub metadata: Option<IDLMetadata>,
     /// Instructions defined in IDL
     pub instructions: Vec<IDLInstruction>,
-    /// Account types
-    pub accounts: Vec<IDLAccount>,
-    /// Custom types
-    pub types: Vec<IDLType>,
+    /// Account types (state structs)
+    #[serde(default)]
+    pub accounts: Vec<IDLAccountType>,
+    /// Custom types (structs, enums)
+    #[serde(default)]
+    pub types: Vec<IDLTypeDef>,
     /// Error codes
-    pub errors: Option<Vec<IDLError>>,
+    #[serde(default)]
+    pub errors: Vec<IDLError>,
+    /// Events (for event logs)
+    #[serde(default)]
+    pub events: Vec<IDLEvent>,
+    /// Constants
+    #[serde(default)]
+    pub constants: Vec<IDLConstant>,
+}
+
+/// IDL Metadata (new Anchor 0.30+ format)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLMetadata {
+    /// Program name
+    pub name: String,
+    /// IDL version
+    pub version: String,
+    /// IDL spec version
+    #[serde(default)]
+    pub spec: Option<String>,
+    /// Description
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 /// IDL Instruction definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IDLInstruction {
-    /// Instruction name
+    /// Instruction name (e.g., "swap", "initialize")
     pub name: String,
-    /// Instruction arguments
+    /// Instruction arguments/parameters
+    #[serde(default)]
     pub args: Vec<IDLField>,
-    /// Accounts required
-    pub accounts: Vec<IDLAccountMeta>,
+    /// Accounts required by instruction
+    pub accounts: Vec<IDLAccountItem>,
+    /// Returns type (optional)
+    #[serde(default)]
+    pub returns: Option<IDLTypeReference>,
+    /// Discriminator bytes (8 bytes for Anchor instructions)
+    #[serde(default)]
+    pub discriminator: Vec<u8>,
+    /// Documentation
+    #[serde(default)]
+    pub docs: Vec<String>,
 }
 
-/// IDL Account definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IDLAccount {
-    /// Account name
-    pub name: String,
-    /// Account type
-    #[serde(rename = "type")]
-    pub type_def: IDLType,
+impl IDLInstruction {
+    /// Compute 8-byte discriminator from instruction name
+    /// Anchor standard: SHA256("global:{name}")[..8]
+    pub fn compute_discriminator(&self) -> [u8; 8] {
+        use sha2::{Digest, Sha256};
+        let preimage = format!("global:{}", self.name);
+        let hash = Sha256::digest(preimage.as_bytes());
+        let mut discriminator = [0u8; 8];
+        discriminator.copy_from_slice(&hash[..8]);
+        discriminator
+    }
 }
 
-/// IDL Account metadata
+/// IDL Account type definition (state accounts)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IDLAccountMeta {
+pub struct IDLAccountType {
     /// Account name
     pub name: String,
-    /// Whether account is mutable
-    #[serde(rename = "isMut")]
+    /// Account type structure (optional in new format)
+    #[serde(rename = "type", default)]
+    pub type_def: Option<IDLAccountTypeKind>,
+    /// Discriminator (new format)
+    #[serde(default)]
+    pub discriminator: Vec<u8>,
+}
+
+/// Kind of account type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLAccountTypeKind {
+    /// "struct" for account data structures
+    pub kind: String,
+    /// Fields in the account
+    pub fields: Vec<IDLField>,
+}
+
+/// IDL Account item in instruction (supports both old and new Anchor formats)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLAccountItem {
+    /// Account name
+    pub name: String,
+    /// Whether account is mutable (old format: isMut, new format: writable)
+    #[serde(rename = "isMut", alias = "writable", default)]
     pub is_mut: bool,
     /// Whether account is signer
-    #[serde(rename = "isSigner")]
+    #[serde(rename = "isSigner", alias = "signer", default)]
     pub is_signer: bool,
+    /// Optional description
+    #[serde(default)]
+    pub docs: Vec<String>,
+    /// Optional PDA seeds (new format)
+    #[serde(default)]
+    pub pda: Option<IDLPda>,
+    /// Optional address constraint (new format)
+    #[serde(default)]
+    pub address: Option<String>,
+}
+
+/// PDA (Program Derived Address) seeds
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLPda {
+    /// Seed values
+    pub seeds: Vec<IDLSeed>,
+}
+
+/// Seed definition for PDA
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLSeed {
+    /// Seed kind (e.g., "const", "arg", "account")
+    pub kind: String,
+    /// Seed value (depends on kind)
+    #[serde(default)]
+    pub value: Option<serde_json::Value>,
 }
 
 /// IDL Field (argument or struct field)
@@ -245,19 +342,87 @@ pub struct IDLField {
     pub name: String,
     /// Field type
     #[serde(rename = "type")]
-    pub type_name: IDLType,
+    pub type_ref: IDLTypeReference,
+    /// Optional documentation
+    #[serde(default)]
+    pub docs: Vec<String>,
 }
 
-/// IDL Type definition
+/// Type reference - can be primitive or complex
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum IDLType {
-    /// Primitive type (string)
+pub enum IDLTypeReference {
+    /// Simple primitive type (string)
     Primitive(String),
+    /// Defined type (struct/enum)
+    Defined { defined: String },
+    /// Option type
+    Option { option: Box<IDLTypeReference> },
+    /// Vec/Array type
+    Vec { vec: Box<IDLTypeReference> },
+    /// Array with fixed size
+    Array { array: [Box<IDLTypeReference>; 2] },
+}
+
+/// Custom type definition (struct or enum)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLTypeDef {
+    /// Type name
+    pub name: String,
+    /// Type structure
+    #[serde(rename = "type")]
+    pub type_def: IDLTypeDefKind,
+}
+
+/// Kind of type definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum IDLTypeDefKind {
     /// Struct type
-    Struct { kind: String, fields: Vec<IDLField> },
+    Struct {
+        /// Struct fields
+        fields: Vec<IDLField>,
+    },
     /// Enum type
-    Enum { kind: String, variants: Vec<IDLField> },
+    Enum {
+        /// Enum variants
+        variants: Vec<IDLEnumVariant>,
+    },
+}
+
+/// Enum variant
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLEnumVariant {
+    /// Variant name
+    pub name: String,
+    /// Optional fields for this variant
+    #[serde(default)]
+    pub fields: Option<Vec<IDLField>>,
+}
+
+/// IDL Event definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLEvent {
+    /// Event name
+    pub name: String,
+    /// Event fields (optional in new format)
+    #[serde(default)]
+    pub fields: Vec<IDLField>,
+    /// Discriminator (new format)
+    #[serde(default)]
+    pub discriminator: Vec<u8>,
+}
+
+/// IDL Constant definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDLConstant {
+    /// Constant name
+    pub name: String,
+    /// Constant type
+    #[serde(rename = "type")]
+    pub type_ref: IDLTypeReference,
+    /// Constant value
+    pub value: String,
 }
 
 /// IDL Error definition
@@ -268,6 +433,7 @@ pub struct IDLError {
     /// Error name
     pub name: String,
     /// Error message
+    #[serde(default)]
     pub msg: String,
 }
 
@@ -485,4 +651,84 @@ pub struct Statistics {
     pub buffer_utilization: f64,
     /// Uptime in seconds
     pub uptime_seconds: u64,
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_instruction_discriminator_calculation() {
+        // Create a test instruction
+        let instruction = IDLInstruction {
+            name: "initialize".to_string(),
+            args: vec![],
+            accounts: vec![],
+            returns: None,
+            discriminator: vec![],
+            docs: vec![],
+        };
+
+        let disc = instruction.compute_discriminator();
+
+        // The discriminator should be 8 bytes
+        assert_eq!(disc.len(), 8);
+
+        // Verify it's deterministic
+        let disc2 = instruction.compute_discriminator();
+        assert_eq!(disc, disc2);
+
+        // Known discriminator for "initialize" instruction
+        // This is from Anchor's standard: SHA256("global:initialize")[..8]
+        // You can verify with: echo -n "global:initialize" | sha256sum
+        let expected = [175, 175, 109, 31, 13, 152, 155, 237];
+        assert_eq!(disc, expected, "Discriminator mismatch for 'initialize'");
+    }
+
+    #[test]
+    fn test_different_instructions_different_discriminators() {
+        let init = IDLInstruction {
+            name: "initialize".to_string(),
+            args: vec![],
+            accounts: vec![],
+            returns: None,
+            discriminator: vec![],
+            docs: vec![],
+        };
+
+        let swap = IDLInstruction {
+            name: "swap".to_string(),
+            args: vec![],
+            accounts: vec![],
+            returns: None,
+            discriminator: vec![],
+            docs: vec![],
+        };
+
+        let init_disc = init.compute_discriminator();
+        let swap_disc = swap.compute_discriminator();
+
+        // Different instructions should have different discriminators
+        assert_ne!(init_disc, swap_disc);
+    }
+
+    #[test]
+    fn test_protocol_program_pubkey() {
+        let protocol = Protocol::new("Test".to_string(), "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4".to_string());
+
+        let pubkey = protocol.program_pubkey();
+        assert!(pubkey.is_ok());
+    }
+
+    #[test]
+    fn test_protocol_invalid_pubkey() {
+        let protocol = Protocol::new("Test".to_string(), "invalid_pubkey".to_string());
+
+        let pubkey = protocol.program_pubkey();
+        assert!(pubkey.is_err());
+    }
 }
