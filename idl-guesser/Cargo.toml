@@ -1,0 +1,39 @@
+[package]
+name = "idl-guesser"
+version = "0.1.0"
+edition = "2021"
+
+[patch.crates-io]
+solana-sbpf = { git = "https://github.com/leoQ7/sbpf", branch = "main" }
+
+[dependencies]
+solana-sbpf = { git = "https://github.com/leoQ7/sbpf", branch = "main" }
+solana-bpf-loader-program = "3.0.0"
+solana-commitment-config = "3.0.0"
+solana-program-runtime = "3.0.0"
+agave-syscalls = "3.0.0"
+solana-svm-callback = "3.0.0"
+solana-svm-log-collector = "3.0.0"
+solana-sdk = "3.0.0"
+solana-compute-budget = "3.0.0"
+solana-svm-feature-set = "3.0.0"
+solana-loader-v3-interface = "6.1.0"
+solana-sdk-ids = "3.0.0"
+solana-pubkey = "3.0.0"
+solana-type-overrides = "2.3.13"
+solana-feature-set = "2.2.5"
+solana-log-collector = "2.3.13"
+solana-client = "3.0.8"
+solana-rent = "3.0.0"
+rustc-demangle = "0.1"
+heck = "0.5"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+anchor-client = "0.31.0"
+anchor-lang = "0.31.0"
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+flate2 = "1.0"
+log = "0.4"
+env_logger = "0.11"
+bytemuck = "1.22"
