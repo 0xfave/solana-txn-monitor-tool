@@ -1,42 +1,111 @@
-# Rust Template [![Github Actions][gha-badge]][gha] [![License: MIT][license-badge]][license]
+# Solana Transaction Monitor Tool
 
-[gha]: https://github.com/PaulRBerg/rust-template/actions
-[gha-badge]: https://github.com/PaulRBerg/rust-template/actions/workflows/ci.yml/badge.svg
-[license]: https://opensource.org/licenses/MIT
-[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+A high-performance ETL pipeline for monitoring and flagging Solana transactions in real-time.
 
-A template for developing Rust projects, with sensible defaults.
+## Overview
 
-## Getting Started
+Monitor specific Solana protocols (Jupiter, Raydium, etc.) and flag high-value or anomalous transactions based on configurable rules. Built with Rust for performance and reliability.
 
-Click the [`Use this template`](https://github.com/PaulRBerg/rust-template/generate) button at the top of the page to
-create a new repository with this repo as the initial state.
+**Current Status**: Phase 2 - RPC Layer Implementation 🚀
 
 ## Features
 
-### Sensible Defaults
+### ✅ Completed
+- **HTTP RPC Client**: Fetch transaction signatures and details from Helius
+- **WebSocket Client**: Real-time transaction streaming with subscription support
+- **Type System**: Comprehensive data structures for transactions, protocols, rules
+- **Architecture**: Complete system design with ETL pipeline
 
-This template comes with sensible default configurations in the following files:
+### 🚧 In Progress
+- Error recovery and rate limiting
+- Transaction parser with IDL support
+- Rules engine for flagging transactions
 
-```text
-├── .editorconfig
-├── .gitignore
-├── .prettierrc.yml
-├── Cargo.toml
-├── justfile
-└── rustfmt.toml
+### 📋 Planned
+- ClickHouse storage integration
+- Terminal User Interface (TUI)
+- Configuration system
+- Complete ETL orchestration
+
+## Quick Start
+
+### Prerequisites
+1. Get a free Helius API key: https://www.helius.dev/
+2. Install Rust: https://rustup.rs/
+
+### Setup
+```bash
+# Clone and setup
+git clone <repo-url>
+cd solana-txn-monitor-tool
+
+# Configure environment
+cp .env.example .env
+# Edit .env and add your HELIUS_API_KEY
+
+# Build
+cargo build
+
+# Run WebSocket monitor (watches Jupiter transactions)
+cargo run --example websocket_monitor
 ```
 
-### GitHub Actions
+### Testing RPC Client
+```bash
+# Fetch recent Jupiter transactions
+cargo run
 
-This template comes with GitHub Actions pre-configured. Your code will be linted and tested on every push and pull
-request made to the `main` branch.
+# Run tests (requires API key in .env)
+cargo test --lib -- --ignored
+```
 
-You can edit the CI script in [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+## Architecture
 
-## Usage
+```
+Extract → Transform → Load
+   ↓         ↓         ↓
+  RPC    → Parser → ClickHouse
+         → Rules
+         → TUI
+```
 
-See [The Rust Book](https://doc.rust-lang.org/book/) and [The Cargo Book](https://doc.rust-lang.org/cargo/index.html).
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
+
+## Examples
+
+### Real-time Transaction Monitoring
+```rust
+use solana_txn_monitor_tool::rpc::HeliusWebSocket;
+
+let mut ws = HeliusWebSocket::connect(api_key).await?;
+let sub_id = ws.subscribe_logs("JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB").await?;
+
+while let Some(notification) = ws.next_notification().await? {
+    println!("New transaction: {:?}", notification);
+}
+```
+
+See `examples/websocket_monitor.rs` for a complete example.
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System design and data flow
+- [SETUP.md](SETUP.md) - Detailed setup instructions
+- [docs/WEBSOCKET_IMPLEMENTATION.md](docs/WEBSOCKET_IMPLEMENTATION.md) - WebSocket client details
+- [prd.md](prd.md) - Product requirements
+
+## Project Structure
+
+```
+src/
+├── config.rs       # Configuration management
+├── rpc/            # Helius RPC client (HTTP + WebSocket)
+├── parser/         # Transaction parsing and IDL decoding
+├── rules/          # Rule engine for flagging
+├── storage/        # ClickHouse integration
+├── tui/            # Terminal UI
+└── types.rs        # Core data structures
+```
 
 ## License
 

@@ -1,5 +1,9 @@
 # directories
 target/
+.cursor/
 
 # files
 **/*.rs.bk
+prd.md
+.env
+transaction_sample.json

@@ -28,7 +28,7 @@ run:
 
 # Run all code checks
 full-check:
-    cargo fmt --all --check
+    cargo +nightly fmt --all --check
     cargo clippy -- --deny warnings
 alias fc := full-check
 
