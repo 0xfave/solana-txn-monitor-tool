@@ -1,6 +1,7 @@
 # directories
 target/
 .cursor/
+idl-guesser/target/
 
 # files
 **/*.rs.bk

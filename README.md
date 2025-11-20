@@ -18,7 +18,7 @@ Monitor specific Solana protocols (Jupiter, Raydium, etc.) and flag high-value o
 
 ### 🚧 In Progress
 - Error recovery and rate limiting
-- Transaction parser with IDL support
+- Instruction decoding from IDL schemas
 - Rules engine for flagging transactions
 
 ### 📋 Planned
@@ -26,6 +26,70 @@ Monitor specific Solana protocols (Jupiter, Raydium, etc.) and flag high-value o
 - Terminal User Interface (TUI)
 - Configuration system
 - Complete ETL orchestration
+
+## Transaction Parser
+
+The tool supports **3-tier IDL loading** for parsing Solana program instructions:
+
+### Tier 1: User-Provided IDL
+Manually provide IDL files for programs you want to monitor:
+
+```rust
+use solana_txn_monitor_tool::parser::TransactionParser;
+
+let mut parser = TransactionParser::with_rpc_url("https://api.mainnet-beta.solana.com".to_string());
+let tier = parser.load_idl_for_program(
+    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    Some(PathBuf::from("idls/jupiter_v6.json"))
+)?;
+// tier == "user-provided"
+```
+
+### Tier 2: Automatic IDL Recovery (IDL Guesser)
+Automatically recover IDL from closed-source Anchor programs using bytecode analysis:
+
+```rust
+let mut parser = TransactionParser::with_rpc_url("https://api.mainnet-beta.solana.com".to_string());
+let tier = parser.load_idl_for_program(
+    "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA", // pump_amm program
+    None // No IDL file provided
+)?;
+// tier == "guessed" (21 instructions discovered automatically!)
+
+let idl = parser.get_idl("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA").unwrap();
+println!("Recovered {} instructions", idl.instructions.len());
+```
+
+The IDL Guesser uses bytecode analysis to extract:
+- ✅ Instruction names and discriminators
+- ✅ Account structures and constraints
+- ✅ Parameter types (primitives, structs, enums)
+- ✅ Admin functions often missing from public IDLs
+
+### Tier 3: Basic Parsing (Fallback)
+When no IDL is available, falls back to basic transaction parsing:
+
+```rust
+let mut parser = TransactionParser::new(); // No RPC URL
+let tier = parser.load_idl_for_program("SomeProgram111111111111111111111111111111", None)?;
+// tier == "basic"
+```
+
+### IDL Guesser Setup
+
+The IDL Guesser is a separate tool by [SEC3](https://github.com/sec3-service/IDLGuesser) that must be built first:
+
+```bash
+# Build the IDL Guesser (one-time, takes ~11 minutes)
+cd idl-guesser
+cargo build --release
+cd ..
+
+# Add to .gitignore
+echo "idl-guesser/target/" >> .gitignore
+```
+
+The binary will be located at `idl-guesser/target/release/idl-guesser` and automatically used by the parser.
 
 ## Quick Start
 
@@ -43,7 +107,12 @@ cd solana-txn-monitor-tool
 cp .env.example .env
 # Edit .env and add your HELIUS_API_KEY
 
-# Build
+# Build IDL Guesser (for automatic IDL recovery)
+cd idl-guesser
+cargo build --release
+cd ..
+
+# Build main project
 cargo build
 
 # Run WebSocket monitor (watches Jupiter transactions)

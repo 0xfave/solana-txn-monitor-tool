@@ -1,3 +1,4 @@
+pub mod idl_guesser;
 pub mod idl_loader;
 
 use anyhow::{Context, Result};
@@ -51,12 +52,29 @@ pub struct TokenTransfer {
 pub struct TransactionParser {
     /// User-provided program mappings (program_id -> name from IDL)
     program_mappings: std::collections::HashMap<String, String>,
+    /// Cached IDL schemas (program_id -> IDL)
+    idl_cache: std::collections::HashMap<String, crate::types::IDLSchema>,
+    /// RPC URL for fetching program data when guessing IDLs
+    rpc_url: Option<String>,
 }
 
 impl TransactionParser {
     /// Create a new transaction parser
     pub fn new() -> Self {
-        Self { program_mappings: std::collections::HashMap::new() }
+        Self {
+            program_mappings: std::collections::HashMap::new(),
+            idl_cache: std::collections::HashMap::new(),
+            rpc_url: None,
+        }
+    }
+
+    /// Create a new transaction parser with RPC URL for IDL guessing
+    pub fn with_rpc_url(rpc_url: String) -> Self {
+        Self {
+            program_mappings: std::collections::HashMap::new(),
+            idl_cache: std::collections::HashMap::new(),
+            rpc_url: Some(rpc_url),
+        }
     }
 
     /// Add a program mapping from IDL or user config
@@ -67,6 +85,54 @@ impl TransactionParser {
     /// Add multiple program mappings at once
     pub fn add_program_mappings(&mut self, mappings: std::collections::HashMap<String, String>) {
         self.program_mappings.extend(mappings);
+    }
+
+    /// Load IDL for a program using 3-tier strategy:
+    /// 1. User-provided IDL file (if path given)
+    /// 2. IDL Guesser (automatic from bytecode)
+    /// 3. Basic parsing (fallback, no IDL)
+    ///
+    /// Returns the tier used: "user-provided", "guessed", or "basic"
+    pub fn load_idl_for_program(
+        &mut self,
+        program_id: &str,
+        user_idl_path: Option<std::path::PathBuf>,
+    ) -> Result<String> {
+        // Tier 1: User-provided IDL
+        if let Some(idl_path) = user_idl_path {
+            debug!("Loading user-provided IDL from: {:?}", idl_path);
+            let idl = idl_loader::load_idl_from_file(&idl_path).context("Failed to load user-provided IDL")?;
+
+            self.program_mappings.insert(program_id.to_string(), idl.name.clone());
+            self.idl_cache.insert(program_id.to_string(), idl);
+            return Ok("user-provided".to_string());
+        }
+
+        // Tier 2: IDL Guesser (if RPC URL available)
+        if let Some(ref rpc_url) = self.rpc_url {
+            debug!("Attempting to guess IDL for program: {}", program_id);
+            match idl_guesser::guess_idl_from_program(program_id, rpc_url) {
+                Ok(idl) => {
+                    debug!("Successfully guessed IDL with {} instructions", idl.instructions.len());
+                    self.program_mappings.insert(program_id.to_string(), idl.name.clone());
+                    self.idl_cache.insert(program_id.to_string(), idl);
+                    return Ok("guessed".to_string());
+                }
+                Err(e) => {
+                    debug!("IDL Guesser failed: {}, falling back to basic parsing", e);
+                    // Fall through to Tier 3
+                }
+            }
+        }
+
+        // Tier 3: Basic parsing (no IDL, use existing logic)
+        debug!("Using basic parsing for program: {}", program_id);
+        Ok("basic".to_string())
+    }
+
+    /// Get cached IDL for a program
+    pub fn get_idl(&self, program_id: &str) -> Option<&crate::types::IDLSchema> {
+        self.idl_cache.get(program_id)
     }
 
     /// Parse a raw transaction JSON from Helius RPC
@@ -359,5 +425,88 @@ mod tests {
         println!("  SOL transfers: {}", parsed.sol_transfers.len());
         println!("  Token transfers: {}", parsed.token_transfers.len());
         Ok(())
+    }
+
+    #[test]
+    fn test_load_idl_basic_fallback() -> anyhow::Result<()> {
+        // Parser without RPC URL, no user IDL
+        let mut parser = TransactionParser::new();
+
+        let tier = parser.load_idl_for_program("JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB", None)?;
+
+        assert_eq!(tier, "basic");
+        assert!(parser.get_idl("JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB").is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore] // Requires RPC connection and IDL Guesser binary
+    fn test_load_idl_with_guesser() -> anyhow::Result<()> {
+        // Initialize tracing for test
+        let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).try_init();
+
+        // Parser with RPC URL
+        let mut parser = TransactionParser::with_rpc_url("https://api.mainnet-beta.solana.com".to_string());
+
+        // Test with pump_amm program (known to work)
+        let program_id = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
+
+        println!("\n=== Testing IDL Guesser integration ===");
+        println!("Program ID: {}", program_id);
+        println!("RPC URL: https://api.mainnet-beta.solana.com");
+
+        let tier = parser.load_idl_for_program(program_id, None);
+
+        match &tier {
+            Ok(t) => println!("✓ Tier used: {}", t),
+            Err(e) => println!("✗ Error loading IDL: {:?}", e),
+        }
+
+        let tier = tier?;
+        assert_eq!(tier, "guessed", "Expected guessed tier but got: {}", tier);
+
+        // Verify IDL was cached
+        let idl = parser.get_idl(program_id).expect("IDL should be cached");
+        assert!(!idl.instructions.is_empty());
+        assert!(idl.instructions.len() >= 10); // Should have at least the core 10 instructions
+
+        // Verify program mapping was added
+        assert!(parser.get_program_name(program_id).is_some());
+
+        println!("✓ Successfully guessed IDL with {} instructions", idl.instructions.len());
+        println!("✓ Program name: {}", idl.name);
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore] // Requires sample IDL file
+    fn test_load_idl_user_provided() -> anyhow::Result<()> {
+        let mut parser = TransactionParser::with_rpc_url("https://api.mainnet-beta.solana.com".to_string());
+
+        // Test with user-provided IDL
+        let idl_path = std::path::PathBuf::from("test_data/jupiter_v6.json");
+        let tier = parser.load_idl_for_program("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4", Some(idl_path))?;
+
+        assert_eq!(tier, "user-provided");
+
+        // Verify IDL was cached
+        let idl = parser.get_idl("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").expect("IDL should be cached");
+        assert!(!idl.instructions.is_empty());
+
+        // User-provided should take precedence even with RPC URL
+        println!("Loaded user-provided IDL with {} instructions", idl.instructions.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parser_with_rpc_url() {
+        let parser = TransactionParser::with_rpc_url("https://api.mainnet-beta.solana.com".to_string());
+        assert!(parser.rpc_url.is_some());
+
+        let parser_no_rpc = TransactionParser::new();
+        assert!(parser_no_rpc.rpc_url.is_none());
     }
 }

@@ -348,14 +348,24 @@ pub struct IDLField {
     pub docs: Vec<String>,
 }
 
+/// Defined type reference (supports both string and object formats)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum IDLDefinedType {
+    /// String format: "defined": "TypeName"
+    String(String),
+    /// Object format: "defined": { "name": "TypeName" }
+    Object { name: String },
+}
+
 /// Type reference - can be primitive or complex
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IDLTypeReference {
     /// Simple primitive type (string)
     Primitive(String),
-    /// Defined type (struct/enum)
-    Defined { defined: String },
+    /// Defined type (struct/enum) - supports both string and object formats
+    Defined { defined: IDLDefinedType },
     /// Option type
     Option { option: Box<IDLTypeReference> },
     /// Vec/Array type
