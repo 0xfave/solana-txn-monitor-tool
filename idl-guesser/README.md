@@ -8,9 +8,9 @@ Check out [SEC3's blog post](https://www.sec3.dev/blog/idl-guesser-recovering-in
 
 ## Why Forked?
 
-This is a fork of SEC3's IDL Guesser integrated into our repository to:
+This is a fork of SEC3's IDL Guesser integrated into the repository to:
 - Ensure long-term availability (no dependency on external repos)
-- Maintain compatibility with our transaction monitoring tool
+- Maintain compatibility with the transaction monitoring tool
 - Allow custom modifications if needed
 - Provide a stable, tested version
 

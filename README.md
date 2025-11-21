@@ -86,7 +86,7 @@ make setup
 
 The binary will be located at `idl-guesser/target/release/idl-guesser` and automatically used by the parser.
 
-**Why forked?** We maintain our own copy to ensure long-term availability and compatibility, independent of external repository changes.
+**Why forked?** I maintain my own copy to ensure long-term availability and compatibility, independent of external repository changes.
 
 ## Quick Start
 
@@ -170,7 +170,24 @@ src/
 ├── storage/        # ClickHouse integration
 ├── tui/            # Terminal UI
 └── types.rs        # Core data structures
+
+idl-guesser/        # IDL Guesser (forked from SEC3)
+├── src/            # Bytecode analysis and IDL recovery
+└── Cargo.toml      # Separate build configuration
 ```
+
+## Acknowledgments
+
+This project incorporates and builds upon excellent work from the Solana community:
+
+### IDL Guesser
+I am grateful to the [SEC3 team](https://www.sec3.dev/) for creating [IDL Guesser](https://github.com/sec3-service/IDLGuesser), an innovative tool for recovering IDL information from closed-source Anchor programs through bytecode analysis. Their work enables automatic instruction parsing without requiring manual IDL files, making this tool significantly more powerful.
+
+**Original Repository**: https://github.com/sec3-service/IDLGuesser  
+**Blog Post**: [Recovering Instruction Layouts from Closed-Source Solana Programs](https://www.sec3.dev/blog/idl-guesser-recovering-instruction-layouts-from-closed-source-solana-programs)  
+**License**: MIT
+
+I maintain a fork of IDL Guesser in the `idl-guesser/` directory to ensure long-term availability and compatibility with this project.
 
 ## License
 

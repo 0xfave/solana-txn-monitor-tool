@@ -1,3 +1,4 @@
+pub mod idl_decoder;
 pub mod idl_guesser;
 pub mod idl_loader;
 

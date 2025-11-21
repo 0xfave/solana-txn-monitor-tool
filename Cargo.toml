@@ -71,6 +71,7 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 
 # Cryptography (for IDL discriminator calculation)
 sha2 = "0.10"
+bs58 = "0.5"  # For base58 encoding (pubkey decoding)
 
 [dev-dependencies]
 mockito = "1.5"    # For mocking HTTP requests in tests

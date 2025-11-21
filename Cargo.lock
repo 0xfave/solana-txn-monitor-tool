@@ -5244,6 +5244,7 @@ dependencies = [
  "anchor-lang",
  "anyhow",
  "async-channel 2.5.0",
+ "bs58 0.5.1",
  "chrono",
  "clickhouse",
  "config",
